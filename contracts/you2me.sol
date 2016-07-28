@@ -5,33 +5,30 @@ contract you2me
     
     // seeker address is the key. provider address is the value.
     mapping (address => Match) private seekerProviderMap;
-    enum CallState 
-    {
+    enum CallState {
+        notStarted,     // default value.
         inProgress,
         canceled,
         completed
     }
-    struct Match 
-    {
+    struct Match {
         address provider;
         CallState state;    // defaults to false.
     }
     
     // provider rating.
-    mapping (address => uint) private providerRating;
+    mapping (address => uint) providerRating;
 
-    modifier adminOnly() 
-    {
+    modifier adminOnly() {
         Logging("AdminOnly", msg.sender);
         
         if (msg.sender == admin)
         {
-            _
+            _   // continue
         }
     }
 
-    modifier seekerOnly()
-    {
+    modifier seekerOnly() {
         Logging("SeekerOnly", msg.sender);
         
         if(seekerProviderMap[msg.sender].provider == address(0)) 
@@ -41,47 +38,42 @@ contract you2me
             // mapping doesn't exist.
             throw;
         }
+        _   // continue
     }
     
     // constructor
-    function you2me() 
-    {
+    function you2me() {
         admin = msg.sender;
         payment = 5;
     }
     
-    event Logging(
-        string _output,
-        address _seekerOrProvider
-    );
+    event Logging(string output, address adr);
     
     // caller: admin
-    function makeMatch(address _seeker, address _provider) adminOnly() 
-    {
-        Logging("MakeMatch", _provider);
+    function createMatch(address _seeker, address _provider) adminOnly() {
+        Logging("match", _provider);
 
         if(seekerProviderMap[msg.sender].state == CallState.inProgress)
         {
-            Logging("MakeMatch: call in progress", _provider);
+            Logging("match: call already in progress", _provider);
 
             // prevent seeker from placing another if a call is already in progress.
-            throw;
+            return;
         }
 
         // last seeker request overwrites previous matches.
         seekerProviderMap[_seeker].provider = _provider;
     }
     
-    function cancelMatch(address _seeker, address _provider) adminOnly() seekerOnly()
-    {
-        Logging("CancelMatch", _provider);
+    function cancelMatch(address _seeker, address _provider) adminOnly() seekerOnly() {
+        Logging("unmatch", _provider);
         
         if(seekerProviderMap[msg.sender].state != CallState.inProgress)
         {
-            Logging("CancelMatch: call not in progress", _provider);
+            Logging("unmatch: call not already in progress", _provider);
 
             // can only cancel calls in progress.
-            throw;
+            return;
         }
 
         // mark call as canceled.
@@ -89,74 +81,74 @@ contract you2me
     }
     
     // caller: admin
-    function callComplete(address _seeker) adminOnly() 
-    {
+    function callComplete(address _seeker) adminOnly() {
         Logging("CallComplete", _seeker);
 
         seekerProviderMap[_seeker].state = CallState.completed;
         
         // send payment to provider.
-        if(!seekerProviderMap[_seeker].provider.send(payment))
+        if(false == seekerProviderMap[_seeker].provider.send(payment))
         {
             Logging("CallComplete: payment failed", _seeker);
-            throw;
+            return;
         }
+            
+        Logging("CallComplete: payment sent", seekerProviderMap[_seeker].provider);
     }
 
     // caller: seeker
-    function RateProvider(address _provider, uint _rating) seekerOnly()
-    {
-        Logging("RateProvider", _provider);
+    function rateProvider(uint _rating) seekerOnly() {
+        Logging("RateProvider", msg.sender);
         
         // check against an empty address.
         if(_rating < 1 || _rating > 5) 
         {
-            Logging("RateProvider: rating is invalid", _provider);
+            Logging("RateProvider: rating is invalid", msg.sender);
         
             // invalid rating value.
-            throw;
+            return;
         }
         
         if(seekerProviderMap[msg.sender].state != CallState.completed)
         {
-            Logging("RateProvider: call was not completed", _provider);
+            Logging("RateProvider: call was not completed", msg.sender);
         
             // prevent seeker from rating provider before the call is complete.
-            throw;
+            return;
         }
         
+        var _provider = seekerProviderMap[msg.sender].provider;
+
         // store rating.
         providerRating[_provider] = _rating;
+
+        Logging("RateProvider: rating complete", _provider);
     }
-    
-    event Call(
-        address seeker,
-        address provider
-        );
+
+    event Call(address seeker, address provider);
         
     // caller: seeker
-    function pay() seekerOnly()
-    {
+    function payProvider() seekerOnly() {
         Logging("Pay", msg.sender);
         
         // check payment is valid.
         if (msg.value < payment)
         {
             Logging("Pay: too low", msg.sender);
-            throw;
+            return;
         }
-        
-        // contract automatically accepts payment. nothing needs to be done.
         
         // change call state.
         seekerProviderMap[msg.sender].state = CallState.inProgress;
         
         // trigger event to initiate call between seeker and provider.
         Call(msg.sender, seekerProviderMap[msg.sender].provider);
+
+        // contract automatically accepts payment. nothing needs to be done.
+        Logging("PayProvider: payment complete", msg.sender);
     }
     
-    function () 
-    {
+    function () {
         // prevent use of the default function.
         Logging("default function", address(0));
     }
