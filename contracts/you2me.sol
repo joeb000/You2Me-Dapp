@@ -1,5 +1,4 @@
-contract you2me
-{
+contract you2me{
     address public admin;
     uint private payment;
 
@@ -21,7 +20,6 @@ contract you2me
 
     modifier adminOnly() {
         Logging("AdminOnly", msg.sender);
-
         if (msg.sender == admin)
         {
             _   // continue
@@ -30,7 +28,6 @@ contract you2me
 
     modifier seekerOnly() {
         Logging("SeekerOnly", msg.sender);
-
         if(seekerProviderMap[msg.sender].provider == address(0))
         {
             Logging("SeekerOnly: no provider mapping found", msg.sender);
